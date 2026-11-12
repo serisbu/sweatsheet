@@ -85,9 +85,12 @@ def track_duration_s(points: Sequence[TrackPoint]) -> float:
 def run_from_track(points: Sequence[TrackPoint], source: str = "gpx",
                    name: str = "") -> RunRecord:
     """Build a RunRecord from GPX trackpoints (distance via haversine)."""
-    distance = track_distance_m(points)
+    distance = track_distance_m(points)  # also checks there are >= 2 points
+    start = points[0].time
+    if start is None:
+        raise MetricsError("GPS trackpoints are missing timestamps.")
     duration = track_duration_s(points)
-    return RunRecord(start=points[0].time, distance_m=distance,
+    return RunRecord(start=start, distance_m=distance,
                      duration_s=duration, source=source, name=name)
 
 

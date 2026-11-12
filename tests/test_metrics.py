@@ -152,6 +152,7 @@ def test_pace_trend_faster_slower_steady():
     faster = m.pace_trend_slope(weeks([10, 9.5, 9, 8.5]))
     slower = m.pace_trend_slope(weeks([8.5, 9, 9.5, 10]))
     steady = m.pace_trend_slope(weeks([9, 9, 9, 9]))
+    assert faster is not None and slower is not None
     assert faster < 0 < slower
     assert faster == pytest.approx(-30)  # 30 s/mi faster per week
     assert m.describe_trend(faster) == "getting faster"
