@@ -9,7 +9,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 from typing import Iterable, Sequence
 
-from models import (
+from .models import (
     METERS_PER_MILE,
     JumpWarning,
     MetricsError,

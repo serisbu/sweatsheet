@@ -2,8 +2,8 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-import metrics as m
-from models import (METERS_PER_MILE, MetricsError, RunRecord, TrackPoint,
+from sweatsheet import metrics as m
+from sweatsheet.models import (METERS_PER_MILE, MetricsError, RunRecord, TrackPoint,
                     format_pace)
 
 MILE = METERS_PER_MILE
