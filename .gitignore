@@ -221,3 +221,4 @@ __marimo__/
 
 activities/
 activities.csv
+.venv-test/
