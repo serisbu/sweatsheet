@@ -10,7 +10,7 @@ matplotlib.use("Agg")  # save to a file
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
-from models import PeriodSummary
+from .models import PeriodSummary
 
 
 def plot_mileage(periods: list[PeriodSummary], path: Path,
