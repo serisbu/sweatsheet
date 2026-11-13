@@ -9,9 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-import metrics
-import plot
-from models import PeriodSummary, RunRecord
+from . import metrics, plot
+from .models import PeriodSummary, RunRecord
 
 #Settings
 LOCAL_TZ = ZoneInfo("America/New_York")   # Strava times are UTC
