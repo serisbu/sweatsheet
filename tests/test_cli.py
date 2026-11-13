@@ -4,13 +4,19 @@ import csv
 
 import pytest
 
-from sweatsheet import cli
+import cli
 
 # Setup: small fake Strava export
 MILE = 1609.344
 # Strava columns we read
-HEADER = ["Activity Date", "Activity Type", "Elapsed Time", "Distance",
-          "Elapsed Time", "Distance"]
+HEADER = [
+    "Activity Date",
+    "Activity Type",
+    "Elapsed Time",
+    "Distance",
+    "Elapsed Time",
+    "Distance",
+]
 
 
 def make_export(folder, rows):
@@ -20,7 +26,7 @@ def make_export(folder, rows):
         writer = csv.writer(f)
         writer.writerow(HEADER)
         for when, kind, miles in rows:
-            secs = miles * 9 * 60 # 9:00 per mile
+            secs = miles * 9 * 60  # 9:00 per mile
             writer.writerow([when, kind, secs, miles * 1.609, secs, miles * MILE])
     return folder
 
@@ -28,11 +34,14 @@ def make_export(folder, rows):
 @pytest.fixture
 def export(tmp_path):
     """20 miles, then 30 miles the next week, plus a bike ride."""
-    return make_export(tmp_path / "export", [
-        ("Jan 5, 2026, 12:00:00 PM", "Run", 20),
-        ("Jan 6, 2026, 12:00:00 PM", "Ride", 50),
-        ("Jan 12, 2026, 12:00:00 PM", "Run", 30),
-    ])
+    return make_export(
+        tmp_path / "export",
+        [
+            ("Jan 5, 2026, 12:00:00 PM", "Run", 20),
+            ("Jan 6, 2026, 12:00:00 PM", "Ride", 50),
+            ("Jan 12, 2026, 12:00:00 PM", "Run", 30),
+        ],
+    )
 
 
 # Read a saved CSV into a list of rows
@@ -57,7 +66,7 @@ def test_csv_has_right_columns_and_values(export, tmp_path):
     assert list(rows[0]) == cli.CSV_COLUMNS
     assert [r["period_start"] for r in rows] == ["2026-01-05", "2026-01-12"]
     assert rows[0]["total_miles"] == "20.00"
-    assert rows[0]["run_count"] == "1" # ride is ignored
+    assert rows[0]["run_count"] == "1"  # ride is ignored
     assert rows[1]["avg_pace"] == "9:00"
 
 
@@ -79,8 +88,7 @@ def test_monthly(export, tmp_path):
 # 3. Week boundaries (Boston time)
 def test_late_sunday_run_stays_in_sunday_week(tmp_path):
     # Mon Jan 12, 2 AM UTC is Sun Jan 11, 9 PM in Boston.
-    export = make_export(tmp_path / "export",
-                         [("Jan 12, 2026, 2:00:00 AM", "Run", 5)])
+    export = make_export(tmp_path / "export", [("Jan 12, 2026, 2:00:00 AM", "Run", 5)])
     out = tmp_path / "weekly.csv"
     cli.main([str(export), "--out", str(out)])
     assert read_rows(out)[0]["period_start"] == "2026-01-05"
@@ -100,8 +108,9 @@ def test_missing_folder_gives_error(tmp_path, capsys):
 
 
 def test_no_runs_gives_error(tmp_path, capsys):
-    export = make_export(tmp_path / "export",
-                         [("Jan 5, 2026, 12:00:00 PM", "Ride", 10)])
+    export = make_export(
+        tmp_path / "export", [("Jan 5, 2026, 12:00:00 PM", "Ride", 10)]
+    )
     assert cli.main([str(export)]) == 1
     assert "error: no runs found" in capsys.readouterr().err
 
@@ -123,15 +132,18 @@ def test_last_must_be_positive(export):
 
 
 def test_year_shows_only_that_year(tmp_path, capsys):
-    export = make_export(tmp_path / "export", [
-        ("Dec 1, 2025, 12:00:00 PM", "Run", 10),
-        ("Jan 5, 2026, 12:00:00 PM", "Run", 12),
-    ])
+    export = make_export(
+        tmp_path / "export",
+        [
+            ("Dec 1, 2025, 12:00:00 PM", "Run", 10),
+            ("Jan 5, 2026, 12:00:00 PM", "Run", 12),
+        ],
+    )
     out = tmp_path / "weekly.csv"
     assert cli.main([str(export), "--year", "2026", "--out", str(out)]) == 0
     printed = capsys.readouterr().out
     assert "2026-01-05" in printed and "2025-12-01" not in printed
-    assert len(read_rows(out)) == 6 # the CSV still has every week
+    assert len(read_rows(out)) == 6  # the CSV still has every week
 
 
 def test_year_with_no_runs_gives_error(export, capsys):
