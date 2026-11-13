@@ -4,7 +4,7 @@ import csv
 
 import pytest
 
-import cli
+from sweatsheet import cli
 
 # Setup: small fake Strava export
 MILE = 1609.344
