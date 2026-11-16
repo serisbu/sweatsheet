@@ -222,3 +222,6 @@ __marimo__/
 activities/
 activities.csv
 .venv-test/
+
+# Real Strava export (personal data) -- never commit
+project files/
