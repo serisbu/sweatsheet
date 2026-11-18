@@ -225,3 +225,5 @@ activities.csv
 
 # Real Strava export (personal data) -- never commit
 project files/
+strava files/
+*.zip
