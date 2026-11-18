@@ -2,7 +2,16 @@
 
 ## 1\. Overview
 
-*TODO: One paragraph: what it does, for whom (Emily Michelsen).*
+**User**: Emily Michelsen, a runner who records her runs on Strava. Veronica Wu, a secondary Strava runner, is for us to check the tool on a second runner’s files.\
+\
+**Need**: Emily wants to see her weekly and monthly mileage, her pace trend over time, and a warning when her weekly mileage jumps too fast, all from her own Strava export, in a CSV and chart she can keep, without copying numbers by hand or paying for a subscription.
+### Program functions:
+**Read & Parse**: Read folders containing raw GPX and CSV (activities.csv) running files, gracefully handling any broken or corrupted files without crashing.\
+\
+**Compute Metrics & Analyze**: Calculate the running distance from GPS tracking points, along with total time and average pace per mile. Group all the runs into weekly and monthly totals (total miles, number of runs, and longest run), track pace trends over time, and trigger a friendly warning if a runner's weekly mileage jumps too quickly to prevent injury.\
+\
+**Export & Output**: Output clean CSV summary reports and automatically generate simple PNG charts showing weekly mileage progress via a command-line interface
+
 
 ## 2\. Input
 
