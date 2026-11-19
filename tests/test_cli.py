@@ -103,7 +103,7 @@ def test_no_runs_gives_error(tmp_path, capsys):
     export = make_export(tmp_path / "export",
                          [("Jan 5, 2026, 12:00:00 PM", "Ride", 10)])
     assert cli.main([str(export)]) == 1
-    assert "error: no runs found" in capsys.readouterr().err
+    assert "error: No runs found" in capsys.readouterr().err
 
 
 def test_bad_row_is_skipped(export, capsys):
@@ -111,7 +111,8 @@ def test_bad_row_is_skipped(export, capsys):
         csv.writer(f).writerow(["not a date", "Run", 1, 1, 1, 1])
     assert cli.main([str(export)]) == 0
     captured = capsys.readouterr()
-    assert "warning: skipped line 5" in captured.err
+    assert "warning: skipped activities.csv line 5" in captured.err
+    assert "Could not read the date" in captured.err
     assert "Read 2 runs." in captured.out
 
 

@@ -5,16 +5,19 @@ from __future__ import annotations
 import argparse
 import csv
 import sys
-from datetime import datetime, timezone
+from dataclasses import replace
+from datetime import timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from . import metrics, plot
 from .models import PeriodSummary, RunRecord
+# Import the function, not the module: main() has a local variable named
+# `parser` (the argparse one) that would hide a module with that name.
+from .parser import load_export
 
 #Settings
 LOCAL_TZ = ZoneInfo("America/New_York")   # Strava times are UTC
-DATE_FORMAT = "%b %d, %Y, %I:%M:%S %p"    # ex: "Apr 12, 2024, 1:26:04 AM"
 CSV_COLUMNS = ["period_start", "total_miles", "run_count",
                "longest_run_miles", "avg_pace", "warning"]
 
@@ -37,38 +40,18 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-# 2. Load runs
-# TEMPORARY: replacing with parser when ready
-def load_runs(folder: Path) -> list[RunRecord]:
-    """Read the runs from FOLDER/activities.csv."""
-    path = folder / "activities.csv"
-    if not path.is_file():
-        raise ValueError(f"no activities.csv in {folder}")
-
-    # Read every row of the file, then find the columns we need
-    with path.open(newline="", encoding="utf-8") as f:
-        rows = list(csv.reader(f))
-    header = rows[0]
-    kind = header.index("Activity Type")
-    when = header.index("Activity Date")
-    # Strava repeats these names; the 2nd ones are meters and seconds.
-    meters = [i for i, name in enumerate(header) if name == "Distance"][1]
-    seconds = [i for i, name in enumerate(header) if name == "Elapsed Time"][1]
-
-    # Keep only runs; skip any bad row with a warning
-    runs = []
-    for line, row in enumerate(rows[1:], start=2):
-        if row[kind] != "Run":
-            continue
-        try:
-            # Convert Strava's UTC time to Boston time (EST)
-            utc = datetime.strptime(row[when], DATE_FORMAT)
-            start = utc.replace(tzinfo=timezone.utc).astimezone(LOCAL_TZ)
-            runs.append(RunRecord(start, float(row[meters] or 0),
-                                  float(row[seconds] or 0), source="csv"))
-        except ValueError as e:
-            print(f"warning: skipped line {line}: {e}", file=sys.stderr)
-    return runs
+# 2. Local time
+# parser.py reads Strava's dates as they are written (UTC, no time zone
+# attached). Convert them here so a late-evening run lands in the right week.
+def to_local_time(runs: list[RunRecord]) -> list[RunRecord]:
+    """Return the runs with `start` moved to LOCAL_TZ (daylight saving aware)."""
+    local = []
+    for run in runs:
+        start = run.start
+        if start.tzinfo is None:           # Strava's naive time is UTC
+            start = start.replace(tzinfo=timezone.utc)
+        local.append(replace(run, start=start.astimezone(LOCAL_TZ)))
+    return local
 
 
 # 3. Results
@@ -108,10 +91,13 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if not args.folder.is_dir():
             raise ValueError(f"folder not found: {args.folder}")
-        # Load the runs
-        runs = load_runs(args.folder)
-        if not runs:
-            raise ValueError(f"no runs found in {args.folder}")
+        # Load the runs (parser.py). A bad file raises an error that is caught
+        # below; a bad row is skipped and reported, and the other rows are used.
+        # load_export also raises if the file has no runs at all.
+        result = load_export(args.folder)
+        for problem in result.problems:
+            print(f"warning: skipped {problem}", file=sys.stderr)
+        runs = to_local_time(result.runs)
 
         # Math (from metrics.py)
         periods = metrics.summarize(runs, period)

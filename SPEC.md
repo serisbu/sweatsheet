@@ -14,14 +14,68 @@
 
 
 ## 2\. Input
-
-*TODO: What folder layout is accepted (activities.csv \+ activities/)*
-
-*TODO: Which file types: GPX, FIT, .gz*
-
-*TODO: Which activities count as runs ("Activity Type" \== "Run")*
-
-*TODO: What happens with a bad, empty, or missing file*
+ 
+All reading is done in parser.py. The command line calls one function, load\_export(folder), which returns the runs (oldest first) and a list of problems.
+ 
+### Folder layout
+ 
+sweatsheet takes one folder: the unzipped Strava export. It must contain activities.csv directly inside it, not in a subfolder.
+ 
+| Path | Status |
+| ----- | ----- |
+| activities.csv | Required. All runs are read from this file. |
+| activities/ (the GPX, FIT and .gz files Strava includes) | Not read yet. |
+ 
+### File types
+ 
+| Type | Status |
+| ----- | ----- |
+| activities.csv | Supported |
+| GPX | Not supported yet. The distance and pace math for GPS points exists in metrics.py (run\_from\_track), but there is no GPX file reader. |
+| FIT | Not supported yet |
+| .gz (compressed files) | Not supported yet |
+ 
+### Which activities count as runs
+ 
+A row counts as a run when its Activity Type is exactly Run (spaces around it are ignored; capital letters matter). Everything else is skipped without a message: rides, walks, yoga, and also Trail Run and Virtual Run. The accepted types are listed in RUN\_TYPES in parser.py.
+ 
+### Columns used from activities.csv
+ 
+| Column | Used for |
+| ----- | ----- |
+| Activity Date | start of the run. Read as written in the file (Strava writes UTC), e.g. "Nov 3, 2026, 12:01:22 PM". The parser does not convert time zones; the command line does (see Section 5). |
+| Activity Type | run or not (see above) |
+| Activity Name | the run's name in messages; if empty, "line N" is used instead |
+| Distance (second column) | distance in meters |
+| Distance (first column) | used only if the second is empty: kilometers × 1000 |
+| Elapsed Time (first column) | duration in seconds. This includes paused time. |
+ 
+Strava repeats the Distance and Elapsed Time headers, so the parser tells the columns apart by position. Thousands separators in numbers (1,234) are ignored.
+ 
+### Bad, empty, or missing files
+ 
+**A problem with the whole input stops the program.** It prints one line, error: followed by the message, to stderr, with no traceback, and exits with code 1.
+ 
+| Situation | Message |
+| ----- | ----- |
+| folder does not exist or is not a folder | folder not found: ... |
+| no activities.csv in the folder | No activities.csv found in ... Point sweatsheet at the unzipped Strava export folder. |
+| activities.csv cannot be read (no permission, not UTF-8 text) | Could not read activities.csv: ... |
+| activities.csv is empty | activities.csv is empty. |
+| a required column is missing (Activity Date, Activity Type, Elapsed Time, Distance) | activities.csv does not look like a Strava export (missing columns: ...). |
+| the file has no runs | No runs found in ... Only activities with Activity Type Run are counted. |
+ 
+**A problem with one row does not stop the program.** That row is skipped, one warning is printed to stderr, and the other rows are still used. The exit code stays 0. The warning looks like this, where the line number counts rows in the file and the header is line 1:
+ 
+warning: skipped activities.csv line 14 ('Morning Run'): Could not read the date 'Nov 31, 2026, 12:01:22 PM'.
+ 
+| Situation | Message ends with |
+| ----- | ----- |
+| the date is not in Strava's format | Could not read the date '...'. |
+| distance or elapsed time is empty or not a number | distance or elapsed time is missing. |
+| distance or elapsed time is negative, NaN or infinite | Run '...': distance cannot be negative. (or "is not a valid number", or the same for duration) |
+ 
+**Ignored without any message:** blank lines, activities that are not runs, and rows too short to contain an Activity Type.
 
 ## 3\. Data model
 
