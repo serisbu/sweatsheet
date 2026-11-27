@@ -44,18 +44,28 @@ class RunRecord:
     duration_s  total elapsed time in seconds (>= 0)
     source      where it came from, e.g. "gpx", "csv" (for debugging/reports)
     name        optional label, e.g. the file name or Strava activity title
+    gps_distance_m
+                distance in meters calculated from the GPS points of the
+                activity's GPX/FIT file (haversine), or None when there is no
+                file or no GPS data (e.g. an indoor run). It sits next to
+                distance_m (the number Strava wrote in activities.csv) so the
+                two can be compared; nothing uses it for totals yet.
     """
     start: datetime
     distance_m: float
     duration_s: float
     source: str = "unknown"
     name: str = ""
+    gps_distance_m: float | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.start, datetime):
             raise MetricsError(f"Run '{self.name}': start must be a datetime.")
-        for label, value in (("distance", self.distance_m),
-                             ("duration", self.duration_s)):
+        checks = [("distance", self.distance_m),
+                  ("duration", self.duration_s)]
+        if self.gps_distance_m is not None:
+            checks.append(("GPS distance", self.gps_distance_m))
+        for label, value in checks:
             if not isinstance(value, (int, float)) or not math.isfinite(value):
                 raise MetricsError(
                     f"Run '{self.name}': {label} is not a valid number.")
@@ -70,6 +80,12 @@ class RunRecord:
     @property
     def distance_miles(self) -> float:
         return self.distance_m / METERS_PER_MILE
+
+    @property
+    def gps_distance_miles(self) -> float | None:
+        if self.gps_distance_m is None:
+            return None
+        return self.gps_distance_m / METERS_PER_MILE
 
     @property
     def pace_s_per_mile(self) -> float | None:
