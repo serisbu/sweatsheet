@@ -2,11 +2,11 @@
 parser.py -- read a Strava export's activities.csv into RunRecords.
 
 WHAT THIS FILE DOES
-    Strava's export produces a file called activities.csv with one row per activity 
+    Strava's export produces a file called activities.csv with one row per activity
     (runs, rides, yoga, ...).
 
-    This module reads that CSV file, and (for now) keeps only the "runs". 
-    It then turns each run into a RunRecord (defined in models.py). 
+    This module reads that CSV file, and (for now) keeps only the "runs".
+    It then turns each run into a RunRecord (defined in models.py).
 
     For each run, the GPX/FIT file named in the CSV's "Filename" column (in the
     export's activities/ folder) is also read. The distance measured along its
@@ -39,7 +39,7 @@ ERROR HANDLING (not fully implemented yet)
         - the date isn't in Strava's format (e.g. "Nov 3, 2026, 12:01:22 PM")
         - distance or elapsed time is empty or not a number
         - distance or elapsed time is negative, NaN or infinite
-        
+
       Message format:
         "activities.csv line 14 ('Morning Run'): Could not read the date 'Nov 31, 2026'."
 
@@ -66,10 +66,8 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 
-from .models import MetricsError, RunRecord
 from .gps import NoGpsError, UnsupportedTrackError, gps_distance_m
-
-
+from .models import MetricsError, RunRecord
 
 # CSV_NAME:     the file we look for inside the export folder.
 # RUN_TYPES:    which "Activity Type" values count as a run.
@@ -77,7 +75,6 @@ from .gps import NoGpsError, UnsupportedTrackError, gps_distance_m
 CSV_NAME = "activities.csv"
 RUN_TYPES = frozenset({"Run"})
 STRAVA_DATE_FORMAT = "%b %d, %Y, %I:%M:%S %p"
-
 
 
 # A small container for the two things a load produces: runs and any problems.
@@ -90,6 +87,7 @@ class LoadResult:
     problems: rows that were skipped (the run is NOT in `runs`).
     notes:    GPS-file warnings (the run IS in `runs`, with its CSV distance).
     """
+
     runs: list[RunRecord] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
@@ -99,12 +97,13 @@ class LoadResult:
 # every file the same unsupported type) are counted here and reported once.
 @dataclass
 class _GpsTally:
-    missing: list[str] = field(default_factory=list)            # file names
-    unsupported: dict[str, int] = field(default_factory=dict)   # reason -> count
+    missing: list[str] = field(default_factory=list)  # file names
+    unsupported: dict[str, int] = field(default_factory=dict)  # reason -> count
 
 
-def _gps_distance_for(export_dir: Path, filename: str, label: str,
-                      result: LoadResult, tally: _GpsTally) -> float | None:
+def _gps_distance_for(
+    export_dir: Path, filename: str, label: str, result: LoadResult, tally: _GpsTally
+) -> float | None:
     """GPS distance in meters for one run's activity file, or None.
 
     Never raises: whatever is wrong with the file, the run is kept.
@@ -117,7 +116,8 @@ def _gps_distance_for(export_dir: Path, filename: str, label: str,
     if not target.is_relative_to(export_dir):
         result.notes.append(
             f"The file '{filename}' is outside the export folder, so it was "
-            f"not read (run '{label}'; using the CSV distance).")
+            f"not read (run '{label}'; using the CSV distance)."
+        )
         return None
     if not target.exists():
         # Strava lists files as 'activities/123.fit.gz'. If the export was
@@ -139,10 +139,10 @@ def _gps_distance_for(export_dir: Path, filename: str, label: str,
     return None
 
 
-
 # --------------------------------------------------------------------------
 # Value helpers
 # --------------------------------------------------------------------------
+
 
 def parse_strava_date(text: str) -> datetime:
     """'Nov 3, 2026, 12:01:22 PM' -> datetime(2026, 11, 3, 12, 1, 22)."""
@@ -165,18 +165,18 @@ def _parse_number(text: str) -> float | None:
         return None
 
 
-
 # --------------------------------------------------------------------------
 # Column Header lookup
 # --------------------------------------------------------------------------
-# Takes Strava's activities.csv header row (a list of column names), 
-# returns a dictionary with the column names as the keys. 
-# 
+# Takes Strava's activities.csv header row (a list of column names),
+# returns a dictionary with the column names as the keys.
+#
 # Some columns in the CSV are duplicates;  e.g. "Distance" appears twice (in km and in meters).
 # A regular {name: position} dict would overwrite the 1st "Distance" with the 2nd (same key, new value)
 #
 #     header = ["Activity ID", "Distance", "Distance"]
 #     result = {"Activity ID": [0], "Distance": [1, 2]}
+
 
 def _column_positions(header: list[str]) -> dict[str, list[int]]:
     positions: dict[str, list[int]] = {}
@@ -188,6 +188,7 @@ def _column_positions(header: list[str]) -> dict[str, list[int]]:
 # --------------------------------------------------------------------------
 # Reading activities.csv
 # --------------------------------------------------------------------------
+
 
 def read_activities_csv(path: str | Path, read_gps: bool = True) -> LoadResult:
     """Read runs out of a Strava activities.csv.
@@ -235,7 +236,7 @@ def read_activities_csv(path: str | Path, read_gps: bool = True) -> LoadResult:
 
     # ---- Helper: get one cell by column name ----------------------
     # cell(row, "Distance", 1) = the value in the 2nd "Distance" column.
-    # Returns "" (instead of crashing) if the column doesn't exist, 
+    # Returns "" (instead of crashing) if the column doesn't exist,
     # or the row is shorter than the header (a truncated/broken line).
     def cell(row: list[str], name: str, nth: int = 0) -> str:
         idx = cols.get(name, [])
@@ -250,7 +251,8 @@ def read_activities_csv(path: str | Path, read_gps: bool = True) -> LoadResult:
     if read_gps and not gps_on:
         result.notes.append(
             f"{path.name} has no 'Filename' column, so GPS distances were "
-            "not calculated.")
+            "not calculated."
+        )
 
     # ---- 3: turn each run row into a RunRecord ---------------------
     # line_no starts at 2 (line 1 is the header); used in error messages.
@@ -292,35 +294,36 @@ def read_activities_csv(path: str | Path, read_gps: bool = True) -> LoadResult:
             # Only now (the row is valid, so the run is kept) look at its GPS
             # file. A bad file never removes the run; see _gps_distance_for.
             if gps_on:
-                gps_m = _gps_distance_for(export_dir, cell(row, "Filename"),
-                                          label, result, tally)
+                gps_m = _gps_distance_for(
+                    export_dir, cell(row, "Filename"), label, result, tally
+                )
                 if gps_m is not None:
                     record = replace(record, gps_distance_m=gps_m)
             result.runs.append(record)
 
         # Any MetricsError for this row: record it and move on to the next row.
         except MetricsError as exc:
-            result.problems.append(
-                f"{path.name} line {line_no} ('{label}'): {exc}")
+            result.problems.append(f"{path.name} line {line_no} ('{label}'): {exc}")
 
     # ---- GPS problems that are reported once, not once per file ----
     if tally.missing:
         result.notes.append(
             f"{len(tally.missing)} activity file(s) listed in {path.name} "
             f"were not found (for example '{tally.missing[0]}'), so GPS "
-            "distance was not calculated for those runs.")
+            "distance was not calculated for those runs."
+        )
     for reason, count in tally.unsupported.items():
         result.notes.append(f"{count} activity file(s) were not read: {reason}.")
 
     return result
 
 
-
 # --------------------------------------------------------------------------
 # Entry point for the CLI
 # --------------------------------------------------------------------------
-# The CLI only needs to call this one function with a folder path. 
+# The CLI only needs to call this one function with a folder path.
 # It finds activities.csv inside, reads it, and sorts the runs by start time (oldest first).
+
 
 def load_export(folder: str | Path, read_gps: bool = True) -> LoadResult:
     """Load all runs from a Strava export folder (via its activities.csv).
@@ -336,17 +339,20 @@ def load_export(folder: str | Path, read_gps: bool = True) -> LoadResult:
     if not csv_path.is_file():
         raise MetricsError(
             f"No {CSV_NAME} found in {folder}. Point sweatsheet at the "
-            "unzipped Strava export folder.")
+            "unzipped Strava export folder."
+        )
 
     result = read_activities_csv(csv_path, read_gps=read_gps)
 
     if not result.runs:
         raise MetricsError(
             f"No runs found in {csv_path}. Only activities with "
-            f"Activity Type {', '.join(sorted(RUN_TYPES))} are counted.")
+            f"Activity Type {', '.join(sorted(RUN_TYPES))} are counted."
+        )
 
     result.runs.sort(key=lambda r: r.start)
     return result
+
 
 # --------------------------------------------------------------------------
 # Result

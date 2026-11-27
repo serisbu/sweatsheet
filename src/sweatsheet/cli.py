@@ -12,33 +12,51 @@ from zoneinfo import ZoneInfo
 
 from . import metrics, plot
 from .models import PeriodSummary, RunRecord
+
 # Import the function, not the module: main() has a local variable named
 # `parser` (the argparse one) that would hide a module with that name.
 from .parser import load_export
 
-#Settings
-LOCAL_TZ = ZoneInfo("America/New_York")   # Strava times are UTC
-CSV_COLUMNS = ["period_start", "total_miles", "run_count",
-               "longest_run_miles", "avg_pace", "warning"]
+# Settings
+LOCAL_TZ = ZoneInfo("America/New_York")  # Strava times are UTC
+CSV_COLUMNS = [
+    "period_start",
+    "total_miles",
+    "run_count",
+    "longest_run_miles",
+    "avg_pace",
+    "warning",
+]
 
 
 # 1. Read what user typed
 def build_parser() -> argparse.ArgumentParser:
     """List the command's options. argparse also makes --help."""
     parser = argparse.ArgumentParser(
-        prog="sweatsheet", description="Summarize a Strava export.")
-    parser.add_argument("folder", type=Path,
-                        help="Strava export folder with activities.csv")
-    parser.add_argument("--monthly", action="store_true",
-                        help="group by month instead of week")
+        prog="sweatsheet", description="Summarize a Strava export."
+    )
+    parser.add_argument(
+        "folder", type=Path, help="Strava export folder with activities.csv"
+    )
+    parser.add_argument(
+        "--monthly", action="store_true", help="group by month instead of week"
+    )
     parser.add_argument("--out", type=Path, help="save the summary as a CSV")
     parser.add_argument("--plot", type=Path, help="save a chart as a PNG")
-    parser.add_argument("--last", type=int, default=12,
-                        help="how many recent periods to show (default 12)")
-    parser.add_argument("--year", type=int,
-                        help="show one year instead of the recent periods")
-    parser.add_argument("--gps", action="store_true",
-                        help="use GPS files when loading the Strava export")
+    parser.add_argument(
+        "--last",
+        type=int,
+        default=12,
+        help="how many recent periods to show (default 12)",
+    )
+    parser.add_argument(
+        "--year", type=int, help="show one year instead of the recent periods"
+    )
+    parser.add_argument(
+        "--gps",
+        action="store_true",
+        help="use GPS files when loading the Strava export",
+    )
     return parser
 
 
@@ -50,7 +68,7 @@ def to_local_time(runs: list[RunRecord]) -> list[RunRecord]:
     local = []
     for run in runs:
         start = run.start
-        if start.tzinfo is None:           # Strava's naive time is UTC
+        if start.tzinfo is None:  # Strava's naive time is UTC
             start = start.replace(tzinfo=timezone.utc)
         local.append(replace(run, start=start.astimezone(LOCAL_TZ)))
     return local
@@ -62,21 +80,28 @@ def print_table(periods: list[PeriodSummary], warn_weeks: set) -> None:
     print(f"{'Start':<11} {'Miles':>6} {'Runs':>5} {'Longest':>8} {'Pace':>6}")
     for p in periods:
         flag = "  !" if p.period_start in warn_weeks else ""
-        print(f"{p.period_start}  {p.total_miles:6.1f} {p.run_count:5d} "
-              f"{p.longest_run_miles:8.1f} {p.avg_pace:>6}{flag}")
+        print(
+            f"{p.period_start}  {p.total_miles:6.1f} {p.run_count:5d} "
+            f"{p.longest_run_miles:8.1f} {p.avg_pace:>6}{flag}"
+        )
 
 
-def write_csv(path: Path, periods: list[PeriodSummary],
-              warn_weeks: set) -> None:
+def write_csv(path: Path, periods: list[PeriodSummary], warn_weeks: set) -> None:
     """Save every period as one CSV row."""
     with path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(CSV_COLUMNS)
         for p in periods:
-            writer.writerow([p.period_start, f"{p.total_miles:.2f}",
-                             p.run_count, f"{p.longest_run_miles:.2f}",
-                             p.avg_pace,
-                             "yes" if p.period_start in warn_weeks else ""])
+            writer.writerow(
+                [
+                    p.period_start,
+                    f"{p.total_miles:.2f}",
+                    p.run_count,
+                    f"{p.longest_run_miles:.2f}",
+                    p.avg_pace,
+                    "yes" if p.period_start in warn_weeks else "",
+                ]
+            )
 
 
 # 4. Everything together
@@ -86,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     # Check the options
     if args.last < 1:
-        parser.error("--last must be at least 1")   # exits with code 2
+        parser.error("--last must be at least 1")  # exits with code 2
     period = "month" if args.monthly else "week"
 
     # Any bad input below is printed as one 'error:' line
@@ -114,13 +139,14 @@ def main(argv: list[str] | None = None) -> int:
             if not shown:
                 raise ValueError(f"no runs in {args.year}")
         else:
-            shown = periods[-args.last:]
+            shown = periods[-args.last :]
 
         # Print table, pace trend, and warnings for shown periods
         print(f"Read {len(runs)} runs.\n")
         print_table(shown, warn_weeks)
-        print(f"\nPace trend: "
-              f"{metrics.describe_trend(metrics.pace_trend_slope(shown))}")
+        print(
+            f"\nPace trend: {metrics.describe_trend(metrics.pace_trend_slope(shown))}"
+        )
         for w in warnings:
             if shown[0].period_start <= w.week_start <= shown[-1].period_start:
                 print(f"\n{w.message}")
