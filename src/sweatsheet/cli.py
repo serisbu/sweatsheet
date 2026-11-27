@@ -37,6 +37,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="how many recent periods to show (default 12)")
     parser.add_argument("--year", type=int,
                         help="show one year instead of the recent periods")
+    parser.add_argument("--gps", action="store_true",
+                        help="use GPS files when loading the Strava export")
     return parser
 
 
@@ -94,9 +96,12 @@ def main(argv: list[str] | None = None) -> int:
         # Load the runs (parser.py). A bad file raises an error that is caught
         # below; a bad row is skipped and reported, and the other rows are used.
         # load_export also raises if the file has no runs at all.
-        result = load_export(args.folder)
+        result = load_export(args.folder, args.gps)
         for problem in result.problems:
             print(f"warning: skipped {problem}", file=sys.stderr)
+        # GPS-file problems: the run is still used, with its CSV distance
+        for note in result.notes:
+            print(f"warning: {note}", file=sys.stderr)
         runs = to_local_time(result.runs)
 
         # Math (from metrics.py)
