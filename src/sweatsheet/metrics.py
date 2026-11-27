@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
+from collections.abc import Iterable, Sequence
 from datetime import date, timedelta
-from typing import Iterable, Sequence
 
 from .models import (
     METERS_PER_MILE,
@@ -32,6 +32,7 @@ WEEKLY_JUMP_THRESHOLD = 0.10
 # Distance, time, pace
 # --------------------------------------------------------------------------
 
+
 def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Great-circle distance in meters between two lat/lon points (degrees)."""
     for lat in (lat1, lat2):
@@ -39,15 +40,15 @@ def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
             raise MetricsError(f"Latitude {lat} is out of range (-90 to 90).")
     for lon in (lon1, lon2):
         if not -180 <= lon <= 180:
-            raise MetricsError(
-                f"Longitude {lon} is out of range (-180 to 180)."
-            )
+            raise MetricsError(f"Longitude {lon} is out of range (-180 to 180).")
 
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = phi2 - phi1
     dlmb = math.radians(lon2 - lon1)
-    a = (math.sin(dphi / 2) ** 2
-         + math.cos(phi1) * math.cos(phi2) * math.sin(dlmb / 2) ** 2)
+    a = (
+        math.sin(dphi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(dlmb / 2) ** 2
+    )
     return 2 * EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(a)))
 
 
@@ -56,10 +57,10 @@ def track_distance_m(points: Sequence[TrackPoint]) -> float:
     if len(points) < 2:
         raise MetricsError(
             "Need at least 2 GPS trackpoints to measure a distance "
-            f"(got {len(points)}).")
+            f"(got {len(points)})."
+        )
     return sum(
-        haversine_m(a.lat, a.lon, b.lat, b.lon)
-        for a, b in zip(points, points[1:])
+        haversine_m(a.lat, a.lon, b.lat, b.lon) for a, b in zip(points, points[1:])
     )
 
 
@@ -68,7 +69,8 @@ def track_duration_s(points: Sequence[TrackPoint]) -> float:
     if len(points) < 2:
         raise MetricsError(
             "Need at least 2 GPS trackpoints to measure a duration "
-            f"(got {len(points)}).")
+            f"(got {len(points)})."
+        )
     first, last = points[0].time, points[-1].time
     if first is None or last is None:
         raise MetricsError("GPS trackpoints are missing timestamps.")
@@ -76,22 +78,25 @@ def track_duration_s(points: Sequence[TrackPoint]) -> float:
         seconds = (last - first).total_seconds()
     except TypeError:
         raise MetricsError(
-            "GPS timestamps mix timezone-aware and naive times.") from None
+            "GPS timestamps mix timezone-aware and naive times."
+        ) from None
     if seconds <= 0:
         raise MetricsError("GPS timestamps do not move forward in time.")
     return seconds
 
 
-def run_from_track(points: Sequence[TrackPoint], source: str = "gpx",
-                   name: str = "") -> RunRecord:
+def run_from_track(
+    points: Sequence[TrackPoint], source: str = "gpx", name: str = ""
+) -> RunRecord:
     """Build a RunRecord from GPX trackpoints (distance via haversine)."""
     distance = track_distance_m(points)  # also checks there are >= 2 points
     start = points[0].time
     if start is None:
         raise MetricsError("GPS trackpoints are missing timestamps.")
     duration = track_duration_s(points)
-    return RunRecord(start=start, distance_m=distance,
-                     duration_s=duration, source=source, name=name)
+    return RunRecord(
+        start=start, distance_m=distance, duration_s=duration, source=source, name=name
+    )
 
 
 def pace_s_per_mile(distance_m: float, duration_s: float) -> float:
@@ -107,6 +112,7 @@ def pace_s_per_mile(distance_m: float, duration_s: float) -> float:
 # Weekly / monthly aggregation
 # --------------------------------------------------------------------------
 
+
 def week_start(d: date) -> date:
     """Monday of the week containing d."""
     return d - timedelta(days=d.weekday())
@@ -119,13 +125,15 @@ def month_start(d: date) -> date:
 def _next_period(start: date, period: str) -> date:
     if period == "week":
         return start + timedelta(days=7)
-    year, month = (start.year + 1, 1) if start.month == 12 \
-        else (start.year, start.month + 1)
+    year, month = (
+        (start.year + 1, 1) if start.month == 12 else (start.year, start.month + 1)
+    )
     return date(year, month, 1)
 
 
-def summarize(runs: Iterable[RunRecord], period: str = "week",
-              fill_gaps: bool = True) -> list[PeriodSummary]:
+def summarize(
+    runs: Iterable[RunRecord], period: str = "week", fill_gaps: bool = True
+) -> list[PeriodSummary]:
     """Group runs into weekly or monthly summaries, oldest first.
 
     fill_gaps=True inserts zero-mile periods for weeks/months with no runs,
@@ -157,16 +165,20 @@ def summarize(runs: Iterable[RunRecord], period: str = "week",
         # pace is distance-weighted: only runs that actually covered distance
         moving = [r for r in group if r.distance_m > 0]
         moving_miles = sum(r.distance_miles for r in moving)
-        pace = (sum(r.duration_s for r in moving) / moving_miles
-                if moving_miles > 0 else None)
-        summaries.append(PeriodSummary(
-            period_start=start,
-            total_miles=miles,
-            run_count=len(group),
-            longest_run_miles=max((r.distance_miles for r in group),
-                                  default=0.0),
-            avg_pace_s_per_mile=pace,
-        ))
+        pace = (
+            sum(r.duration_s for r in moving) / moving_miles
+            if moving_miles > 0
+            else None
+        )
+        summaries.append(
+            PeriodSummary(
+                period_start=start,
+                total_miles=miles,
+                run_count=len(group),
+                longest_run_miles=max((r.distance_miles for r in group), default=0.0),
+                avg_pace_s_per_mile=pace,
+            )
+        )
     return summaries
 
 
@@ -174,8 +186,10 @@ def summarize(runs: Iterable[RunRecord], period: str = "week",
 # Pace trend
 # --------------------------------------------------------------------------
 
-def rolling_pace(summaries: Sequence[PeriodSummary],
-                 window: int = 4) -> list[float | None]:
+
+def rolling_pace(
+    summaries: Sequence[PeriodSummary], window: int = 4
+) -> list[float | None]:
     """Mean pace over the last `window` periods that had a pace.
 
     Aligned 1:1 with `summaries`; None where no pace is available yet.
@@ -184,9 +198,11 @@ def rolling_pace(summaries: Sequence[PeriodSummary],
         raise MetricsError("window must be at least 1.")
     out: list[float | None] = []
     for i in range(len(summaries)):
-        recent = [s.avg_pace_s_per_mile
-                  for s in summaries[max(0, i - window + 1): i + 1]
-                  if s.avg_pace_s_per_mile is not None]
+        recent = [
+            s.avg_pace_s_per_mile
+            for s in summaries[max(0, i - window + 1) : i + 1]
+            if s.avg_pace_s_per_mile is not None
+        ]
         out.append(sum(recent) / len(recent) if recent else None)
     return out
 
@@ -197,8 +213,11 @@ def pace_trend_slope(summaries: Sequence[PeriodSummary]) -> float | None:
     Negative = getting faster, positive = getting slower.
     None if fewer than 2 periods have a pace.
     """
-    pts = [(i, s.avg_pace_s_per_mile) for i, s in enumerate(summaries)
-           if s.avg_pace_s_per_mile is not None]
+    pts = [
+        (i, s.avg_pace_s_per_mile)
+        for i, s in enumerate(summaries)
+        if s.avg_pace_s_per_mile is not None
+    ]
     if len(pts) < 2:
         return None
     n = len(pts)
@@ -223,10 +242,12 @@ def describe_trend(slope: float | None, steady_band_s: float = 2.0) -> str:
 # Weekly mileage jump warning
 # --------------------------------------------------------------------------
 
-def weekly_jump_warnings(weekly: Sequence[PeriodSummary],
-                         threshold: float = WEEKLY_JUMP_THRESHOLD,
-                         min_previous_miles: float = 0.0
-                         ) -> list[JumpWarning]:
+
+def weekly_jump_warnings(
+    weekly: Sequence[PeriodSummary],
+    threshold: float = WEEKLY_JUMP_THRESHOLD,
+    min_previous_miles: float = 0.0,
+) -> list[JumpWarning]:
     """Flag weeks whose mileage is MORE than `threshold` above the prior week.
 
     `weekly` must be consecutive weeks (summarize(..., fill_gaps=True) does
@@ -241,11 +262,16 @@ def weekly_jump_warnings(weekly: Sequence[PeriodSummary],
             continue
         increase = (cur.total_miles - prev.total_miles) / prev.total_miles
         if increase > threshold:
-            msg = (f"Heads up! Week of {cur.period_start:%b} "
-                   f"{cur.period_start.day}: {cur.total_miles:.1f} mi is "
-                   f"{increase:.0%} more than the week before "
-                   f"({prev.total_miles:.1f} mi). Ramping up gradually "
-                   f"(about {threshold:.0%} per week) helps prevent injury.")
-            warnings.append(JumpWarning(cur.period_start, prev.total_miles,
-                                        cur.total_miles, increase, msg))
+            msg = (
+                f"Heads up! Week of {cur.period_start:%b} "
+                f"{cur.period_start.day}: {cur.total_miles:.1f} mi is "
+                f"{increase:.0%} more than the week before "
+                f"({prev.total_miles:.1f} mi). Ramping up gradually "
+                f"(about {threshold:.0%} per week) helps prevent injury."
+            )
+            warnings.append(
+                JumpWarning(
+                    cur.period_start, prev.total_miles, cur.total_miles, increase, msg
+                )
+            )
     return warnings

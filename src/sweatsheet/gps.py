@@ -78,7 +78,10 @@ class UnsupportedTrackError(MetricsError):
 # Public functions
 # --------------------------------------------------------------------------
 
-def read_track(path: str | Path) -> list[TrackPoint]:
+
+def read_track(
+    path: str | Path,
+) -> list[TrackPoint]:
     """
     Read the GPS points (in file order) from a .gpx/.fit file, gzipped or not.
     """
@@ -94,7 +97,8 @@ def read_track(path: str | Path) -> list[TrackPoint]:
         ext = Path(stem).suffix or "(no extension)"
         raise UnsupportedTrackError(
             f"{path.name}: this file type is not supported.",
-            reason=f"'{ext}' files are not supported yet")
+            reason=f"'{ext}' files are not supported yet",
+        )
 
     try:
         raw = path.read_bytes()
@@ -102,20 +106,26 @@ def read_track(path: str | Path) -> list[TrackPoint]:
     except FileNotFoundError:
         raise
     except (OSError, EOFError, zlib.error) as exc:
-        what = "could not be unzipped (the .gz is damaged or cut off)" \
-            if gzipped else "could not be read"
+        what = (
+            "could not be unzipped (the .gz is damaged or cut off)"
+            if gzipped
+            else "could not be read"
+        )
         raise MetricsError(f"{path.name} {what}: {exc}.") from exc
 
     return parse(data, path.name)
 
 
-def gps_distance_m(path: str | Path) -> float:
+def gps_distance_m(
+    path: str | Path,
+) -> float:
     """Distance in meters along the file's GPS points (haversine)."""
     path = Path(path)
     points = read_track(path)
     if len(points) < 2:
         raise NoGpsError(
-            f"{path.name} has fewer than 2 GPS points, so it has no distance.")
+            f"{path.name} has fewer than 2 GPS points, so it has no distance."
+        )
     return track_distance_m(points)
 
 
@@ -123,7 +133,10 @@ def gps_distance_m(path: str | Path) -> float:
 # GPX
 # --------------------------------------------------------------------------
 
-def _local(tag: str) -> str:
+
+def _local(
+    tag: str,
+) -> str:
     """'{http://www.topografix.com/GPX/1/1}trkpt' -> 'trkpt'."""
     return tag.rsplit("}", 1)[-1]
 
@@ -134,21 +147,24 @@ def _gpx_time(trkpt: ET.Element) -> datetime | None:
         if _local(child.tag) == "time" and child.text:
             try:
                 # fromisoformat() only understands "Z" on Python 3.11+
-                return datetime.fromisoformat(
-                    child.text.strip().replace("Z", "+00:00"))
+                return datetime.fromisoformat(child.text.strip().replace("Z", "+00:00"))
             except ValueError:
                 return None
     return None
 
 
-def _points_from_gpx(data: bytes, name: str) -> list[TrackPoint]:
+def _points_from_gpx(
+    data: bytes,
+    name: str,
+) -> list[TrackPoint]:
     if not data.strip():
         raise MetricsError(f"{name} is empty.")
     try:
         root = ET.fromstring(data)
     except ET.ParseError as exc:
         raise MetricsError(
-            f"{name} is not valid GPX (the XML is broken: {exc}).") from exc
+            f"{name} is not valid GPX (the XML is broken: {exc})."
+        ) from exc
     if _local(root.tag) != "gpx":
         raise MetricsError(f"{name} does not look like a GPX file.")
 
@@ -158,8 +174,7 @@ def _points_from_gpx(data: bytes, name: str) -> list[TrackPoint]:
         try:
             lat, lon = float(el.attrib["lat"]), float(el.attrib["lon"])
         except (KeyError, ValueError):
-            raise MetricsError(
-                f"{name}: GPS point {n} has no valid lat/lon.") from None
+            raise MetricsError(f"{name}: GPS point {n} has no valid lat/lon.") from None
         points.append(TrackPoint(lat, lon, _gpx_time(el)))
 
     if not points:
@@ -171,14 +186,19 @@ def _points_from_gpx(data: bytes, name: str) -> list[TrackPoint]:
 # FIT
 # --------------------------------------------------------------------------
 
-def _points_from_fit(data: bytes, name: str) -> list[TrackPoint]:
+
+def _points_from_fit(
+    data: bytes,
+    name: str,
+) -> list[TrackPoint]:
     try:
         from garmin_fit_sdk import Decoder, Stream
     except ImportError:
         raise UnsupportedTrackError(
             f"{name}: reading FIT files needs the garmin-fit-sdk package.",
             reason="FIT files need the garmin-fit-sdk package "
-                   "(install it with: uv add garmin-fit-sdk)") from None
+            "(install it with: uv add garmin-fit-sdk)",
+        ) from None
 
     if not data:
         raise MetricsError(f"{name} is empty.")
@@ -195,20 +215,19 @@ def _points_from_fit(data: bytes, name: str) -> list[TrackPoint]:
         if not fresh_decoder().check_integrity():
             raise MetricsError(
                 f"{name} is damaged (it failed the FIT integrity check; it "
-                "may be cut off or corrupted).")
+                "may be cut off or corrupted)."
+            )
         messages, errors = fresh_decoder().read()
     except MetricsError:
         raise
     except Exception as exc:  # the decoder's own failures are undocumented
         raise MetricsError(
-            f"{name} could not be decoded as a FIT file: {exc}.") from exc
+            f"{name} could not be decoded as a FIT file: {exc}."
+        ) from exc
     if errors:
-        raise MetricsError(
-            f"{name} could not be decoded as a FIT file: {errors[0]}.")
+        raise MetricsError(f"{name} could not be decoded as a FIT file: {errors[0]}.")
     if not messages:
-        raise MetricsError(
-            f"{name} could not be decoded: no data found in it."
-        )
+        raise MetricsError(f"{name} could not be decoded: no data found in it.")
 
     points: list[TrackPoint] = []
     for record in messages.get("record_mesgs", []):
@@ -216,9 +235,13 @@ def _points_from_fit(data: bytes, name: str) -> list[TrackPoint]:
         if lat is None or lon is None:
             continue  # this sample has no GPS fix
         when = record.get("timestamp")
-        points.append(TrackPoint(
-            lat * SEMICIRCLES_TO_DEGREES, lon * SEMICIRCLES_TO_DEGREES,
-            when if isinstance(when, datetime) else None))
+        points.append(
+            TrackPoint(
+                lat * SEMICIRCLES_TO_DEGREES,
+                lon * SEMICIRCLES_TO_DEGREES,
+                when if isinstance(when, datetime) else None,
+            )
+        )
 
     if not points:
         raise NoGpsError(f"{name} has no GPS positions (an indoor run?).")
